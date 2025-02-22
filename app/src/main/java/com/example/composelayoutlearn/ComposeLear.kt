@@ -1,11 +1,17 @@
 package com.example.composelayoutlearn
 
 import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.calculateTargetValue
+import androidx.compose.animation.rememberSplineBasedDecay
+import androidx.compose.foundation.gestures.Orientation
+import androidx.compose.foundation.gestures.draggable
+import androidx.compose.foundation.gestures.rememberDraggableState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bedtime
 import androidx.compose.material.icons.filled.Home
@@ -24,9 +30,11 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import kotlinx.coroutines.launch
 
 /*
@@ -39,7 +47,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun HomeScreenDrawer() {
     Surface(modifier = Modifier.fillMaxSize()) {
-        var drawerState by remember { mutableStateOf(com.example.composelayoutlearn.DrawerState.Closed) }
+        var drawerState by remember { mutableStateOf(DrawerState.Closed) }
         var screenState by remember { mutableStateOf(Screen.Home) }
         val translationX = remember { Animatable(0f) }
         val drawerWidth = with(LocalDensity.current) {
@@ -50,15 +58,15 @@ fun HomeScreenDrawer() {
 
         fun toggleDrawerState() {
             coroutineScope.launch {
-                if (drawerState == com.example.composelayoutlearn.DrawerState.Open) {
+                if (drawerState == DrawerState.Open) {
                     translationX.animateTo(0f)
                 } else {
                     translationX.animateTo(drawerWidth)
                 }
-                drawerState = if (drawerState == com.example.composelayoutlearn.DrawerState.Open) {
-                    com.example.composelayoutlearn.DrawerState.Closed
+                drawerState = if (drawerState == DrawerState.Open) {
+                    DrawerState.Closed
                 } else {
-                    com.example.composelayoutlearn.DrawerState.Open
+                    DrawerState.Open
                 }
             }
         }
@@ -69,8 +77,63 @@ fun HomeScreenDrawer() {
                 screenState = screen
             }
         )
+
+        val draggableState = rememberDraggableState(
+            onDelta = { dragAmount ->
+                coroutineScope.launch {
+                    translationX.snapTo(translationX.value + dragAmount)
+                }
+            }
+        )
+        val decay = rememberSplineBasedDecay<Float>()
+        ScreenContents(
+            selectedScreen = screenState,
+            onDrawerClicked = ::toggleDrawerState,
+            modifier = Modifier
+                .graphicsLayer {
+                    this.translationX = translationX.value
+                    val scale = lerp(1f, 0.8f, translationX.value / drawerWidth)
+                    this.scaleX = scale
+                    this.scaleY = scale
+                    val roundedCorners = lerp(0f, 32.dp.toPx(), translationX.value / drawerWidth)
+                    this.shape = RoundedCornerShape(roundedCorners)
+                    this.clip = true
+                    this.shadowElevation = 32f
+                }
+                .draggable(
+                    state = draggableState,
+                    orientation = Orientation.Horizontal,
+                    onDragStopped = { velocity ->
+                        val targetOffsetX = decay.calculateTargetValue(translationX.value, velocity)
+                        coroutineScope.launch {
+                            val actualTargetx = if (targetOffsetX > drawerWidth * 0.5) {
+                                drawerWidth
+                            } else {
+                                0f
+                            }
+                            val targetDifference = (actualTargetx - targetOffsetX)
+                            val canReachTargetWithDecay =
+                                (targetOffsetX > actualTargetx && velocity > 0f) || (targetOffsetX < actualTargetx && velocity < 0 && targetDifference < 0f)
+                            if (canReachTargetWithDecay) {
+                                translationX.animateDecay(
+                                    initialVelocity = velocity,
+                                    animationSpec = decay
+                                )
+                            } else {
+                                translationX.animateTo(actualTargetx, initialVelocity = velocity)
+                            }
+                            drawerState = if (actualTargetx == drawerWidth) {
+                                DrawerState.Open
+                            } else {
+                                DrawerState.Closed
+                            }
+                        }
+                    }
+                )
+        )
     }
 }
+
 
 @Composable
 private fun HomeScreenDrawerContents(
@@ -109,17 +172,17 @@ private fun ScreenContents(
     onDrawerClicked: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Box (modifier=modifier){
+    Box(modifier = modifier) {
         when (selectedScreen) {
-            Screen.Home ->  JetLaggedScreen(
+            Screen.Home -> JetLaggedScreen(
                 modifier = Modifier,
                 onDrawerClicked = onDrawerClicked
             )
-//            Screen.SleepDetails -> SleepDetailsScreen()
-//            Screen.Leaderboard -> LeaderboardScreen()
-//            Screen.Settings -> SettingsScreen()
+            Screen.SleepDetails -> Surface (modifier=Modifier.fillMaxSize()){
+            }
+            Screen.Leaderboard ->Surface (modifier=Modifier.fillMaxSize()){}
+            Screen.Settings -> Surface (modifier=Modifier.fillMaxSize()){}
 
-            else -> {}
         }
     }
 }

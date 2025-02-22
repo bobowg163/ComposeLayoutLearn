@@ -3,7 +3,6 @@ package com.example.composelayoutlearn
 import android.graphics.Color
 import android.graphics.RuntimeShader
 import android.os.Build
-import androidx.annotation.RequiresApi
 import androidx.compose.animation.core.withInfiniteAnimationFrameMillis
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.ui.Modifier
@@ -36,7 +35,6 @@ private data object YellowBackgroundElement : ModifierNodeElement<YellowBackgrou
 
 }
 
-@RequiresApi(Build.VERSION_CODES.TIRAMISU)
 private class YellowBackgroundNode : DrawModifierNode, Modifier.Node() {
 
     private val shader = RuntimeShader(SHADER)
